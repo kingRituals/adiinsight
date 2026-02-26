@@ -68,8 +68,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
       });
       return {
         ...state,
-        commodities: newCommodities,
-        activityLog: [{ id: Date.now().toString(), timestamp, action: `Updated ${action.commodityId} price in ${action.state}` }, ...state.activityLog].slice(0, 10)
+        commodities: newCommodities
       };
     }
     case 'BULK_UPDATE': {
@@ -88,21 +87,18 @@ function appReducer(state: AppState, action: AppAction): AppState {
       });
       return {
         ...state,
-        commodities: newCommodities,
-        activityLog: [{ id: Date.now().toString(), timestamp, action: `Bulk updated ${action.commodityId} prices` }, ...state.activityLog].slice(0, 10)
+        commodities: newCommodities
       };
     }
     case 'UPDATE_COMMODITY':
       return {
         ...state,
-        commodities: state.commodities.map(c => c.id === action.commodityId ? { ...c, ...action.data } : c),
-        activityLog: [{ id: Date.now().toString(), timestamp, action: `Updated commodity details for ${action.commodityId}` }, ...state.activityLog].slice(0, 10)
+        commodities: state.commodities.map(c => c.id === action.commodityId ? { ...c, ...action.data } : c)
       };
     case 'UPDATE_HERO':
       return {
         ...state,
-        hero: action.data,
-        activityLog: [{ id: Date.now().toString(), timestamp, action: 'Updated hero section content' }, ...state.activityLog].slice(0, 10)
+        hero: action.data
       };
     case 'ADD_STATE':
       if (state.states.includes(action.state)) return state;
@@ -112,8 +108,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
         commodities: state.commodities.map(c => ({
           ...c,
           prices: [...c.prices, { state: action.state, price: 0, unit: c.baseUnit, lastUpdated: '-', change: 0 }]
-        })),
-        activityLog: [{ id: Date.now().toString(), timestamp, action: `Added new state: ${action.state}` }, ...state.activityLog].slice(0, 10)
+        }))
       };
     case 'REMOVE_STATE':
       return {
@@ -122,8 +117,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
         commodities: state.commodities.map(c => ({
           ...c,
           prices: c.prices.filter(p => p.state !== action.state)
-        })),
-        activityLog: [{ id: Date.now().toString(), timestamp, action: `Removed state: ${action.state}` }, ...state.activityLog].slice(0, 10)
+        }))
       };
     case 'ADD_LOG':
       return {
@@ -133,14 +127,12 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case 'ADD_USER':
       return {
         ...state,
-        users: [...state.users, action.user],
-        activityLog: [{ id: Date.now().toString(), timestamp, action: `Created new user: ${action.user.username}` }, ...state.activityLog].slice(0, 10)
+        users: [...state.users, action.user]
       };
     case 'REMOVE_USER':
       return {
         ...state,
-        users: state.users.filter(u => u.id !== action.userId),
-        activityLog: [{ id: Date.now().toString(), timestamp, action: `Removed user ID: ${action.userId}` }, ...state.activityLog].slice(0, 10)
+        users: state.users.filter(u => u.id !== action.userId)
       };
     default:
       return state;
@@ -409,6 +401,15 @@ const AdminPanel = ({ state, dispatch, onLogout, currentUser }: { state: AppStat
   // State Management
   const [newStateName, setNewStateName] = useState('');
 
+  // Commodity Edit State
+  const [selectedCommodityId, setSelectedCommodityId] = useState(state.commodities[0].id);
+  const [commodityForm, setCommodityForm] = useState(state.commodities[0]);
+
+  useEffect(() => {
+    const commodity = state.commodities.find(c => c.id === selectedCommodityId);
+    if (commodity) setCommodityForm(commodity);
+  }, [selectedCommodityId, state.commodities]);
+
   // User Management State
   const [newUser, setNewUser] = useState({ username: '', password: '', role: 'editor' as 'admin' | 'editor' });
 
@@ -421,6 +422,7 @@ const AdminPanel = ({ state, dispatch, onLogout, currentUser }: { state: AppStat
       price: parseFloat(editPrice.price), 
       unit: editPrice.unit 
     });
+    dispatch({ type: 'ADD_LOG', action: `Updated ${editPrice.commodityId} price in ${editPrice.state}` });
     alert('Price updated successfully!');
   };
 
@@ -434,6 +436,7 @@ const AdminPanel = ({ state, dispatch, onLogout, currentUser }: { state: AppStat
         return { state: stateName, price: parseFloat(price), unit };
       });
       dispatch({ type: 'BULK_UPDATE', commodityId: bulkCommodity, updates });
+      dispatch({ type: 'ADD_LOG', action: `Bulk updated ${bulkCommodity} prices` });
       setBulkData('');
       alert('Bulk update successful!');
     } catch (err) {
@@ -441,9 +444,17 @@ const AdminPanel = ({ state, dispatch, onLogout, currentUser }: { state: AppStat
     }
   };
 
+  const handleCommodityUpdate = (e: React.FormEvent) => {
+    e.preventDefault();
+    dispatch({ type: 'UPDATE_COMMODITY', commodityId: selectedCommodityId, data: commodityForm });
+    dispatch({ type: 'ADD_LOG', action: `Updated commodity details for ${commodityForm.name}` });
+    alert('Commodity details updated!');
+  };
+
   const handleHeroUpdate = (e: React.FormEvent) => {
     e.preventDefault();
     dispatch({ type: 'UPDATE_HERO', data: heroForm });
+    dispatch({ type: 'ADD_LOG', action: 'Updated hero section content' });
     alert('Hero section updated!');
   };
 
@@ -458,6 +469,7 @@ const AdminPanel = ({ state, dispatch, onLogout, currentUser }: { state: AppStat
     };
     
     dispatch({ type: 'ADD_USER', user });
+    dispatch({ type: 'ADD_LOG', action: `Created new user: ${user.username}` });
     setNewUser({ username: '', password: '', role: 'editor' });
     alert('User account created successfully!');
   };
@@ -605,6 +617,56 @@ const AdminPanel = ({ state, dispatch, onLogout, currentUser }: { state: AppStat
             </div>
           )}
 
+          {activeView === 'commodities' && (
+            <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
+              <form onSubmit={handleCommodityUpdate} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-700">Select Commodity to Edit</label>
+                  <select 
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
+                    value={selectedCommodityId}
+                    onChange={(e) => setSelectedCommodityId(e.target.value)}
+                  >
+                    {state.commodities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-700">Commodity Name</label>
+                    <input 
+                      type="text"
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
+                      value={commodityForm.name}
+                      onChange={(e) => setCommodityForm({ ...commodityForm, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-700">Base Unit</label>
+                    <input 
+                      type="text"
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
+                      value={commodityForm.baseUnit}
+                      onChange={(e) => setCommodityForm({ ...commodityForm, baseUnit: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-700">Description</label>
+                  <textarea 
+                    rows={3}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
+                    value={commodityForm.description}
+                    onChange={(e) => setCommodityForm({ ...commodityForm, description: e.target.value })}
+                  />
+                </div>
+                <button type="submit" className="flex items-center gap-2 px-6 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary-dark transition-colors">
+                  <Save className="w-4 h-4" />
+                  Save Commodity Details
+                </button>
+              </form>
+            </div>
+          )}
+
           {activeView === 'hero' && (
             <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
               <form onSubmit={handleHeroUpdate} className="space-y-6">
@@ -658,6 +720,7 @@ const AdminPanel = ({ state, dispatch, onLogout, currentUser }: { state: AppStat
                     onClick={() => {
                       if (newStateName) {
                         dispatch({ type: 'ADD_STATE', state: newStateName });
+                        dispatch({ type: 'ADD_LOG', action: `Added new state: ${newStateName}` });
                         setNewStateName('');
                       }
                     }}
@@ -683,7 +746,10 @@ const AdminPanel = ({ state, dispatch, onLogout, currentUser }: { state: AppStat
                         <td className="px-6 py-4 font-bold text-slate-900">{s}</td>
                         <td className="px-6 py-4 text-right">
                           <button 
-                            onClick={() => dispatch({ type: 'REMOVE_STATE', state: s })}
+                            onClick={() => {
+                              dispatch({ type: 'REMOVE_STATE', state: s });
+                              dispatch({ type: 'ADD_LOG', action: `Removed state: ${s}` });
+                            }}
                             className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -764,7 +830,10 @@ const AdminPanel = ({ state, dispatch, onLogout, currentUser }: { state: AppStat
                         <td className="px-6 py-4 text-right">
                           {u.username !== 'admin' && (
                             <button 
-                              onClick={() => dispatch({ type: 'REMOVE_USER', userId: u.id })}
+                              onClick={() => {
+                                dispatch({ type: 'REMOVE_USER', userId: u.id });
+                                dispatch({ type: 'ADD_LOG', action: `Removed user: ${u.username}` });
+                              }}
                               className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
                             >
                               <Trash2 className="w-4 h-4" />
