@@ -802,145 +802,149 @@ const AdminPanel = ({ state, dispatch, onLogout, currentUser }: { state: AppStat
   );
 };
 
+// --- Sub-components for Routing ---
+
+const PublicLayout = ({ children, currentUser }: { children: React.ReactNode, currentUser: any }) => (
+  <div className="min-h-screen flex flex-col">
+    <Navbar onAdminClick={() => {}} isAdmin={!!currentUser} />
+    <main className="flex-1">{children}</main>
+    <footer className="bg-slate-900 text-white py-16">
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
+          <div className="col-span-1 md:col-span-2">
+            <div className="flex items-center gap-2 mb-6">
+              <Leaf className="w-8 h-8 text-primary-light" />
+              <h2 className="text-3xl font-serif font-bold tracking-tight">
+                <span className="text-white">AdI</span>
+                <span className="text-primary-light">Insight</span>
+              </h2>
+            </div>
+            <p className="text-slate-400 max-w-md leading-relaxed">
+              AdIInsight is Nigeria's leading platform for real-time agricultural commodity intelligence. 
+              We empower farmers, traders, and investors with accurate data to navigate the dynamic agro-market.
+            </p>
+          </div>
+          
+          <div>
+            <h4 className="font-bold mb-6 uppercase tracking-wider text-xs text-slate-500">Quick Links</h4>
+            <ul className="space-y-4 text-slate-400">
+              <li><a href="#" className="hover:text-primary-light transition-colors">Market Analysis</a></li>
+              <li><a href="#" className="hover:text-primary-light transition-colors">State Reports</a></li>
+              <li><a href="#" className="hover:text-primary-light transition-colors">Pricing Methodology</a></li>
+              <li><a href="#" className="hover:text-primary-light transition-colors">Partner with Us</a></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="font-bold mb-6 uppercase tracking-wider text-xs text-slate-500">Contact</h4>
+            <ul className="space-y-4 text-slate-400">
+              <li>info@adinsight.ng</li>
+              <li>+234 800 ADI INSIGHT</li>
+              <li>Lagos, Nigeria</li>
+            </ul>
+          </div>
+        </div>
+        
+        <div className="pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-slate-500">
+          <p>© 2024 AdIInsight Intelligence. All rights reserved.</p>
+          <p className="italic text-xs">Disclaimer: Market prices are indicative and subject to change based on local market conditions.</p>
+        </div>
+      </div>
+    </footer>
+  </div>
+);
+
+const Dashboard = ({ state }: { state: AppState }) => (
+  <>
+    <Hero config={state.hero} />
+    <section className="max-w-7xl mx-auto px-4 -mt-12 relative z-20">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {state.commodities.map(c => (
+          <CommodityCard key={c.id} commodity={c} />
+        ))}
+      </div>
+    </section>
+    <PriceTable commodities={state.commodities} states={state.states} />
+  </>
+);
+
+const AdminRoute = ({ state, dispatch, currentUser, setCurrentUser }: { state: AppState, dispatch: React.Dispatch<AppAction>, currentUser: any, setCurrentUser: (user: any) => void }) => {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    const user = state.users.find(u => u.username === username && u.password === password);
+    if (user) {
+      setCurrentUser(user);
+      setError('');
+    } else {
+      setError('Invalid credentials. Please try again.');
+    }
+  };
+
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden"
+        >
+          <div className="p-8">
+            <div className="flex items-center gap-2 mb-8">
+              <Lock className="w-6 h-6 text-primary" />
+              <h3 className="text-2xl font-bold text-slate-900">Admin Login</h3>
+            </div>
+            <form onSubmit={handleLogin} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-700">Username</label>
+                <input 
+                  type="text"
+                  required
+                  placeholder="Enter username"
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-700">Password</label>
+                <input 
+                  type="password"
+                  required
+                  placeholder="Enter password"
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                {error && <p className="text-xs text-rose-500 font-medium">{error}</p>}
+              </div>
+              <button type="submit" className="w-full py-4 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-primary-dark transition-all">
+                Sign In
+              </button>
+            </form>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  return <AdminPanel state={state} dispatch={dispatch} onLogout={() => setCurrentUser(null)} currentUser={currentUser} />;
+};
+
 // --- Main App ---
 
 export default function App() {
   const [state, dispatch] = useReducer(appReducer, INITIAL_DATA);
   const [currentUser, setCurrentUser] = useState<any>(null);
 
-  const PublicLayout = ({ children }: { children: React.ReactNode }) => (
-    <div className="min-h-screen flex flex-col">
-      <Navbar onAdminClick={() => {}} isAdmin={!!currentUser} />
-      <main className="flex-1">{children}</main>
-      <footer className="bg-slate-900 text-white py-16">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
-            <div className="col-span-1 md:col-span-2">
-              <div className="flex items-center gap-2 mb-6">
-                <Leaf className="w-8 h-8 text-primary-light" />
-                <h2 className="text-3xl font-serif font-bold tracking-tight">
-                  <span className="text-white">AdI</span>
-                  <span className="text-primary-light">Insight</span>
-                </h2>
-              </div>
-              <p className="text-slate-400 max-w-md leading-relaxed">
-                AdIInsight is Nigeria's leading platform for real-time agricultural commodity intelligence. 
-                We empower farmers, traders, and investors with accurate data to navigate the dynamic agro-market.
-              </p>
-            </div>
-            
-            <div>
-              <h4 className="font-bold mb-6 uppercase tracking-wider text-xs text-slate-500">Quick Links</h4>
-              <ul className="space-y-4 text-slate-400">
-                <li><a href="#" className="hover:text-primary-light transition-colors">Market Analysis</a></li>
-                <li><a href="#" className="hover:text-primary-light transition-colors">State Reports</a></li>
-                <li><a href="#" className="hover:text-primary-light transition-colors">Pricing Methodology</a></li>
-                <li><a href="#" className="hover:text-primary-light transition-colors">Partner with Us</a></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-bold mb-6 uppercase tracking-wider text-xs text-slate-500">Contact</h4>
-              <ul className="space-y-4 text-slate-400">
-                <li>info@adinsight.ng</li>
-                <li>+234 800 ADI INSIGHT</li>
-                <li>Lagos, Nigeria</li>
-              </ul>
-            </div>
-          </div>
-          
-          <div className="pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-slate-500">
-            <p>© 2024 AdIInsight Intelligence. All rights reserved.</p>
-            <p className="italic text-xs">Disclaimer: Market prices are indicative and subject to change based on local market conditions.</p>
-          </div>
-        </div>
-      </footer>
-    </div>
-  );
-
-  const Dashboard = () => (
-    <>
-      <Hero config={state.hero} />
-      <section className="max-w-7xl mx-auto px-4 -mt-12 relative z-20">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {state.commodities.map(c => (
-            <CommodityCard key={c.id} commodity={c} />
-          ))}
-        </div>
-      </section>
-      <PriceTable commodities={state.commodities} states={state.states} />
-    </>
-  );
-
-  const AdminRoute = () => {
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
-
-    const handleLogin = (e: React.FormEvent) => {
-      e.preventDefault();
-      const user = state.users.find(u => u.username === username && u.password === password);
-      if (user) {
-        setCurrentUser(user);
-        setError('');
-      } else {
-        setError('Invalid credentials. Please try again.');
-      }
-    };
-
-    if (!currentUser) {
-      return (
-        <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden"
-          >
-            <div className="p-8">
-              <div className="flex items-center gap-2 mb-8">
-                <Lock className="w-6 h-6 text-primary" />
-                <h3 className="text-2xl font-bold text-slate-900">Admin Login</h3>
-              </div>
-              <form onSubmit={handleLogin} className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700">Username</label>
-                  <input 
-                    type="text"
-                    required
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700">Password</label>
-                  <input 
-                    type="password"
-                    required
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                  {error && <p className="text-xs text-rose-500 font-medium">{error}</p>}
-                </div>
-                <button type="submit" className="w-full py-4 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-primary-dark transition-all">
-                  Sign In
-                </button>
-              </form>
-            </div>
-          </motion.div>
-        </div>
-      );
-    }
-
-    return <AdminPanel state={state} dispatch={dispatch} onLogout={() => setCurrentUser(null)} currentUser={currentUser} />;
-  };
-
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<PublicLayout><Dashboard /></PublicLayout>} />
-        <Route path="/admin" element={<AdminRoute />} />
+        <Route path="/" element={<PublicLayout currentUser={currentUser}><Dashboard state={state} /></PublicLayout>} />
+        <Route path="/admin" element={<AdminRoute state={state} dispatch={dispatch} currentUser={currentUser} setCurrentUser={setCurrentUser} />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </BrowserRouter>
