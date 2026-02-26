@@ -23,6 +23,9 @@ export const INITIAL_DATA: AppState = {
   activityLog: [
     { id: '1', timestamp: new Date().toISOString(), action: 'Platform initialized with seed data' }
   ],
+  users: [
+    { id: 'admin-1', username: 'admin', password: '12345', role: 'admin', createdAt: new Date().toISOString() }
+  ],
   commodities: [
     {
       id: 'palm-oil',

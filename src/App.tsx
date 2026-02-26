@@ -1,5 +1,14 @@
 import React, { useState, useReducer, useEffect, useMemo } from 'react';
 import { 
+  BrowserRouter, 
+  Routes, 
+  Route, 
+  Navigate, 
+  useNavigate, 
+  Link,
+  useLocation
+} from 'react-router-dom';
+import { 
   Leaf, 
   LayoutDashboard, 
   TrendingUp, 
@@ -23,7 +32,9 @@ import {
   CircleDot,
   Clock,
   FileText,
-  Upload
+  Upload,
+  Users,
+  UserPlus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -119,6 +130,18 @@ function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         activityLog: [{ id: Date.now().toString(), timestamp, action: action.action }, ...state.activityLog].slice(0, 10)
       };
+    case 'ADD_USER':
+      return {
+        ...state,
+        users: [...state.users, action.user],
+        activityLog: [{ id: Date.now().toString(), timestamp, action: `Created new user: ${action.user.username}` }, ...state.activityLog].slice(0, 10)
+      };
+    case 'REMOVE_USER':
+      return {
+        ...state,
+        users: state.users.filter(u => u.id !== action.userId),
+        activityLog: [{ id: Date.now().toString(), timestamp, action: `Removed user ID: ${action.userId}` }, ...state.activityLog].slice(0, 10)
+      };
     default:
       return state;
   }
@@ -133,6 +156,7 @@ const iconMap: Record<string, React.ElementType> = {
 
 const Navbar = ({ onAdminClick, isAdmin }: { onAdminClick: () => void, isAdmin: boolean }) => {
   const [time, setTime] = useState(new Date());
+  const navigate = useNavigate();
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -142,7 +166,7 @@ const Navbar = ({ onAdminClick, isAdmin }: { onAdminClick: () => void, isAdmin: 
   return (
     <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 py-3">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-2">
           <div className="bg-primary p-1.5 rounded-lg">
             <Leaf className="w-6 h-6 text-white" />
           </div>
@@ -150,10 +174,10 @@ const Navbar = ({ onAdminClick, isAdmin }: { onAdminClick: () => void, isAdmin: 
             <span className="text-slate-900">AdI</span>
             <span className="text-primary">Insight</span>
           </h1>
-        </div>
+        </Link>
         
         <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
-          <a href="#" className="hover:text-primary transition-colors">Dashboard</a>
+          <Link to="/" className="hover:text-primary transition-colors">Dashboard</Link>
           <a href="#" className="hover:text-primary transition-colors">Commodities</a>
           <a href="#" className="hover:text-primary transition-colors">Market Trends</a>
           <a href="#" className="hover:text-primary transition-colors">About</a>
@@ -165,7 +189,7 @@ const Navbar = ({ onAdminClick, isAdmin }: { onAdminClick: () => void, isAdmin: 
             {time.toLocaleTimeString()} | {time.toLocaleDateString()}
           </div>
           <button 
-            onClick={onAdminClick}
+            onClick={() => navigate('/admin')}
             className={`p-2 rounded-full transition-colors ${isAdmin ? 'bg-primary text-white' : 'hover:bg-slate-100 text-slate-600'}`}
           >
             {isAdmin ? <LayoutDashboard className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
@@ -369,8 +393,8 @@ const PriceTable = ({ commodities, states }: { commodities: Commodity[], states:
 
 // --- Admin Panel ---
 
-const AdminPanel = ({ state, dispatch, onLogout }: { state: AppState, dispatch: React.Dispatch<AppAction>, onLogout: () => void }) => {
-  const [activeView, setActiveView] = useState<'prices' | 'bulk' | 'commodities' | 'hero' | 'states' | 'logs'>('prices');
+const AdminPanel = ({ state, dispatch, onLogout, currentUser }: { state: AppState, dispatch: React.Dispatch<AppAction>, onLogout: () => void, currentUser: any }) => {
+  const [activeView, setActiveView] = useState<'prices' | 'bulk' | 'commodities' | 'hero' | 'states' | 'logs' | 'users'>('prices');
   
   // Price Edit State
   const [editPrice, setEditPrice] = useState({ commodityId: state.commodities[0].id, state: state.states[0], price: '', unit: '' });
@@ -384,6 +408,9 @@ const AdminPanel = ({ state, dispatch, onLogout }: { state: AppState, dispatch: 
 
   // State Management
   const [newStateName, setNewStateName] = useState('');
+
+  // User Management State
+  const [newUser, setNewUser] = useState({ username: '', password: '', role: 'editor' as 'admin' | 'editor' });
 
   const handlePriceUpdate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -420,15 +447,30 @@ const AdminPanel = ({ state, dispatch, onLogout }: { state: AppState, dispatch: 
     alert('Hero section updated!');
   };
 
+  const handleAddUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUser.username || !newUser.password) return;
+    
+    const user = {
+      id: Date.now().toString(),
+      ...newUser,
+      createdAt: new Date().toISOString()
+    };
+    
+    dispatch({ type: 'ADD_USER', user });
+    setNewUser({ username: '', password: '', role: 'editor' });
+    alert('User account created successfully!');
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex">
       {/* Sidebar */}
       <aside className="w-64 bg-slate-900 text-white flex flex-col">
         <div className="p-6 border-b border-white/10">
-          <div className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2">
             <Leaf className="w-6 h-6 text-primary-light" />
             <span className="font-serif font-bold text-xl">Admin Panel</span>
-          </div>
+          </Link>
         </div>
         
         <nav className="flex-1 p-4 space-y-1">
@@ -438,8 +480,9 @@ const AdminPanel = ({ state, dispatch, onLogout }: { state: AppState, dispatch: 
             { id: 'commodities', label: 'Commodity Details', icon: FileText },
             { id: 'hero', label: 'Hero Editor', icon: LayoutDashboard },
             { id: 'states', label: 'Manage States', icon: Plus },
+            { id: 'users', label: 'User Management', icon: Users, adminOnly: true },
             { id: 'logs', label: 'Activity Log', icon: Clock },
-          ].map(item => (
+          ].filter(item => !item.adminOnly || currentUser.role === 'admin').map(item => (
             <button
               key={item.id}
               onClick={() => setActiveView(item.id as any)}
@@ -454,6 +497,10 @@ const AdminPanel = ({ state, dispatch, onLogout }: { state: AppState, dispatch: 
         </nav>
 
         <div className="p-4 border-t border-white/10">
+          <div className="px-4 py-2 mb-2">
+            <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">Logged in as</p>
+            <p className="text-sm font-bold text-primary-light">{currentUser.username} ({currentUser.role})</p>
+          </div>
           <button 
             onClick={onLogout}
             className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-rose-400 hover:bg-rose-500/10 transition-colors"
@@ -468,7 +515,7 @@ const AdminPanel = ({ state, dispatch, onLogout }: { state: AppState, dispatch: 
       <main className="flex-1 overflow-y-auto p-8">
         <header className="mb-8 flex justify-between items-center">
           <h2 className="text-2xl font-bold text-slate-900 capitalize">{activeView.replace('-', ' ')}</h2>
-          <div className="text-sm text-slate-500">Logged in as Administrator</div>
+          <div className="text-sm text-slate-500">Dashboard / {activeView}</div>
         </header>
 
         <div className="max-w-4xl">
@@ -650,6 +697,88 @@ const AdminPanel = ({ state, dispatch, onLogout }: { state: AppState, dispatch: 
             </div>
           )}
 
+          {activeView === 'users' && (
+            <div className="space-y-6">
+              <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
+                <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
+                  <UserPlus className="w-5 h-5 text-primary" />
+                  Create New User Account
+                </h3>
+                <form onSubmit={handleAddUser} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <input 
+                    type="text"
+                    placeholder="Username"
+                    required
+                    className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
+                    value={newUser.username}
+                    onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
+                  />
+                  <input 
+                    type="password"
+                    placeholder="Password"
+                    required
+                    className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
+                    value={newUser.password}
+                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                  />
+                  <select 
+                    className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
+                    value={newUser.role}
+                    onChange={(e) => setNewUser({ ...newUser, role: e.target.value as 'admin' | 'editor' })}
+                  >
+                    <option value="editor">Editor</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                  <button 
+                    type="submit"
+                    className="md:col-span-3 flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary-dark transition-colors"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    Create Account
+                  </button>
+                </form>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                <table className="w-full text-left">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Username</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Role</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Created At</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {state.users.map(u => (
+                      <tr key={u.id} className="hover:bg-slate-50">
+                        <td className="px-6 py-4 font-bold text-slate-900">{u.username}</td>
+                        <td className="px-6 py-4">
+                          <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                            u.role === 'admin' ? 'bg-primary/10 text-primary' : 'bg-slate-100 text-slate-500'
+                          }`}>
+                            {u.role}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-400">{new Date(u.createdAt).toLocaleDateString()}</td>
+                        <td className="px-6 py-4 text-right">
+                          {u.username !== 'admin' && (
+                            <button 
+                              onClick={() => dispatch({ type: 'REMOVE_USER', userId: u.id })}
+                              className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {activeView === 'logs' && (
             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
               <div className="divide-y divide-slate-100">
@@ -677,45 +806,12 @@ const AdminPanel = ({ state, dispatch, onLogout }: { state: AppState, dispatch: 
 
 export default function App() {
   const [state, dispatch] = useReducer(appReducer, INITIAL_DATA);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [showLogin, setShowLogin] = useState(false);
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password === 'adinsight2024') {
-      setIsAdmin(true);
-      setShowLogin(false);
-      setPassword('');
-      setError('');
-    } else {
-      setError('Invalid password. Please try again.');
-    }
-  };
-
-  if (isAdmin) {
-    return <AdminPanel state={state} dispatch={dispatch} onLogout={() => setIsAdmin(false)} />;
-  }
-
-  return (
+  const PublicLayout = ({ children }: { children: React.ReactNode }) => (
     <div className="min-h-screen flex flex-col">
-      <Navbar onAdminClick={() => setShowLogin(true)} isAdmin={isAdmin} />
-      
-      <main className="flex-1">
-        <Hero config={state.hero} />
-        
-        <section className="max-w-7xl mx-auto px-4 -mt-12 relative z-20">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {state.commodities.map(c => (
-              <CommodityCard key={c.id} commodity={c} />
-            ))}
-          </div>
-        </section>
-
-        <PriceTable commodities={state.commodities} states={state.states} />
-      </main>
-
+      <Navbar onAdminClick={() => {}} isAdmin={!!currentUser} />
+      <main className="flex-1">{children}</main>
       <footer className="bg-slate-900 text-white py-16">
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
@@ -759,63 +855,94 @@ export default function App() {
           </div>
         </div>
       </footer>
-
-      {/* Login Modal */}
-      <AnimatePresence>
-        {showLogin && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowLogin(false)}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden"
-            >
-              <div className="p-8">
-                <div className="flex justify-between items-center mb-8">
-                  <div className="flex items-center gap-2">
-                    <Lock className="w-5 h-5 text-primary" />
-                    <h3 className="text-xl font-bold text-slate-900">Admin Login</h3>
-                  </div>
-                  <button onClick={() => setShowLogin(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-                    <X className="w-5 h-5 text-slate-400" />
-                  </button>
-                </div>
-
-                <form onSubmit={handleLogin} className="space-y-6">
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-slate-700">Access Password</label>
-                    <input 
-                      type="password"
-                      autoFocus
-                      required
-                      placeholder="••••••••"
-                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                    />
-                    {error && <p className="text-xs text-rose-500 font-medium">{error}</p>}
-                  </div>
-                  <button type="submit" className="w-full py-4 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-primary-dark transition-all">
-                    Enter Dashboard
-                  </button>
-                </form>
-              </div>
-              <div className="bg-slate-50 p-6 border-t border-slate-100 text-center">
-                <p className="text-xs text-slate-400">
-                  Authorized personnel only. All access attempts are logged.
-                </p>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
+  );
+
+  const Dashboard = () => (
+    <>
+      <Hero config={state.hero} />
+      <section className="max-w-7xl mx-auto px-4 -mt-12 relative z-20">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {state.commodities.map(c => (
+            <CommodityCard key={c.id} commodity={c} />
+          ))}
+        </div>
+      </section>
+      <PriceTable commodities={state.commodities} states={state.states} />
+    </>
+  );
+
+  const AdminRoute = () => {
+    const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+
+    const handleLogin = (e: React.FormEvent) => {
+      e.preventDefault();
+      const user = state.users.find(u => u.username === username && u.password === password);
+      if (user) {
+        setCurrentUser(user);
+        setError('');
+      } else {
+        setError('Invalid credentials. Please try again.');
+      }
+    };
+
+    if (!currentUser) {
+      return (
+        <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden"
+          >
+            <div className="p-8">
+              <div className="flex items-center gap-2 mb-8">
+                <Lock className="w-6 h-6 text-primary" />
+                <h3 className="text-2xl font-bold text-slate-900">Admin Login</h3>
+              </div>
+              <form onSubmit={handleLogin} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-700">Username</label>
+                  <input 
+                    type="text"
+                    required
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-700">Password</label>
+                  <input 
+                    type="password"
+                    required
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                  {error && <p className="text-xs text-rose-500 font-medium">{error}</p>}
+                </div>
+                <button type="submit" className="w-full py-4 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-primary-dark transition-all">
+                  Sign In
+                </button>
+              </form>
+            </div>
+          </motion.div>
+        </div>
+      );
+    }
+
+    return <AdminPanel state={state} dispatch={dispatch} onLogout={() => setCurrentUser(null)} currentUser={currentUser} />;
+  };
+
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<PublicLayout><Dashboard /></PublicLayout>} />
+        <Route path="/admin" element={<AdminRoute />} />
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </BrowserRouter>
   );
 }

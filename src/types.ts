@@ -30,11 +30,20 @@ export interface ActivityLogEntry {
   action: string;
 }
 
+export interface User {
+  id: string;
+  username: string;
+  password: string;
+  role: 'admin' | 'editor';
+  createdAt: string;
+}
+
 export interface AppState {
   commodities: Commodity[];
   states: string[];
   hero: HeroConfig;
   activityLog: ActivityLogEntry[];
+  users: User[];
 }
 
 export type AppAction =
@@ -44,4 +53,6 @@ export type AppAction =
   | { type: 'UPDATE_HERO'; data: HeroConfig }
   | { type: 'ADD_STATE'; state: string }
   | { type: 'REMOVE_STATE'; state: string }
-  | { type: 'ADD_LOG'; action: string };
+  | { type: 'ADD_LOG'; action: string }
+  | { type: 'ADD_USER'; user: User }
+  | { type: 'REMOVE_USER'; userId: string };
